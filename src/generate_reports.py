@@ -621,7 +621,7 @@ footer.disclaimer {{ color: var(--muted); font-size: 11px; margin-top: 20px; bor
   <div class="score-cards">
     <div class="score-card">
       <div class="sc-head">
-        <strong>品質スコア（10年保有の質）</strong>
+        <strong>ファンダ点（10年保有の質）</strong>
         <span class="sc-num">{_fmt(item.get("quality_score"), 1)} <span style="font-size:13px;font-weight:400;color:var(--muted)">/ 110</span></span>
       </div>
       {_score_bar(item.get("quality_score"))}
@@ -638,7 +638,7 @@ footer.disclaimer {{ color: var(--muted); font-size: 11px; margin-top: 20px; bor
   </div>
 
   <div class="section-card">
-    <h2>① 品質の指標（各行クリックで詳細・グラフ展開）</h2>
+    <h2>① ファンダ点の指標（各行クリックで詳細・グラフ展開）</h2>
     <div class="group-head"><span>業績グループ</span><span>{_fmt(item.get("perf_score"), 1)} / 110</span></div>
     {perf_rows}
     <div class="group-head"><span>財務グループ</span><span>{_fmt(item.get("fin_score"), 1)} / 110</span></div>

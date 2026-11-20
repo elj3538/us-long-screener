@@ -171,7 +171,7 @@ def _build_watchlist_html() -> str:
           <tr>
             <th>順</th><th>軍</th><th>コード</th><th>銘柄</th><th>業種</th>
             <th class="num">終値</th><th class="num">1Y騰落</th>
-            <th class="num">品質</th><th class="num">買い時</th><th>メモ</th><th>操作</th>
+            <th class="num">ファンダ点</th><th class="num">買い時</th><th>メモ</th><th>操作</th>
           </tr>
         </thead>
         <tbody id="wl-tbody"></tbody>
@@ -573,7 +573,7 @@ def _build_guide_html() -> str:
   <div class="card">
     <h2>1. 2つの総合スコア（各 0〜110点）</h2>
     <ul>
-      <li><strong>品質スコア（10年保有できる事業の強さ）</strong>：配当利回りは採点に含めず、本業の成長力・財務健全性・キャッシュ創出力だけで評価します。
+      <li><strong>ファンダ点（10年保有できる事業の強さ）</strong>：配当利回りは採点に含めず、本業の成長力・財務健全性・キャッシュ創出力だけで評価します。
         <ul>
           <li><strong>一般企業</strong>：業績(重み0.28) ＋ 財務(0.27) ＋ キャッシュフロー(0.15) を正規化</li>
           <li><strong>銀行・保険・大手証券</strong>：ROE・増収率・EPS成長率・利益安定度の各25%</li>
@@ -592,8 +592,8 @@ def _build_guide_html() -> str:
   <div class="card">
     <h2>3. 軍分け（1軍〜3軍）・業種級・カバレッジ</h2>
     <ul>
-      <li><strong>1軍 / 2軍 / 3軍</strong>：各GICSセクター内で品質スコア順に、上位25%＝1軍、次45%＝2軍、下位30%＝3軍に分類します（カバレッジ「低」は2軍上限、絶対品質スコア75点以上は3軍に落とさない下限補正あり）。</li>
-      <li><strong>業種級（A / B / C）</strong>：セクター内の品質スコア中央値により判定します。</li>
+      <li><strong>1軍 / 2軍 / 3軍</strong>：各GICSセクター内でファンダ点順に、上位25%＝1軍、次45%＝2軍、下位30%＝3軍に分類します（カバレッジ「低」は2軍上限、絶対ファンダ点75点以上は3軍に落とさない下限補正あり）。</li>
+      <li><strong>業種級（A / B / C）</strong>：セクター内のファンダ点中央値により判定します。</li>
       <li><strong>オプション取引向け参考シグナル</strong>：<code>ranking.json</code> および個別レポートには、強気戦略向けの「1軍＆急減速なし」フラグと、プット買い等の弱気検討向けの「弱気警戒スコア」も併記しています。</li>
     </ul>
   </div>

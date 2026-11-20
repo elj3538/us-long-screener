@@ -155,7 +155,7 @@ def _build_table_html(rows_html: str, include_sector_col: bool = False) -> str:
   <th class="sortable num ret-extra hidden-col" data-key="ret_6m"><span class="th-lbl" data-term="6M">6M</span><span class="sort-btn">▼</span></th>
   <th class="sortable num ret-extra hidden-col" data-key="ret_9m"><span class="th-lbl" data-term="9M">9M</span><span class="sort-btn">▼</span></th>
   <th class="sortable num ret-y" data-key="ret_y"><button type="button" class="ret-toggle-btn" title="クリックで期間展開">騰落率(1Y) ⇄</button><span class="sort-btn">▼</span></th>
-  <th class="sortable num" data-key="q"><span class="th-lbl" data-term="品質">品質</span><span class="sort-btn">▼</span></th>
+  <th class="sortable num" data-key="q"><span class="th-lbl" data-term="ファンダ点">ファンダ点</span><span class="sort-btn">▼</span></th>
   <th class="sortable num" data-key="perf"><span class="th-lbl" data-term="業績">業績</span><span class="sort-btn">▼</span></th>
   <th class="sortable num" data-key="fin"><span class="th-lbl" data-term="財務">財務</span><span class="sort-btn">▼</span></th>
   <th class="sortable num" data-key="cf"><span class="th-lbl" data-term="CF">CF</span><span class="sort-btn">▼</span></th>
@@ -233,7 +233,7 @@ def generate_outputs(scored_data: dict[str, Any], dist_dir: Path) -> None:
     <span>{html.escape(sec)}</span>
     <span class="sec-meta">
       <span class="grade-pill grade-{grade}">業種級 {grade}</span>
-      <span>品質中央値: <strong>{q_med}</strong></span>
+      <span>ファンダ点中央値: <strong>{q_med}</strong></span>
       <span>銘柄数: <strong class="sec-vis-cnt">{len(sec_items)}</strong> / {len(sec_items)}</span>
     </span>
   </h2>
@@ -441,10 +441,10 @@ table.rank-table tr:hover {{ background: color-mix(in srgb, var(--accent) 6%, tr
     <summary>詳しい条件で絞り込む</summary>
     <div class="flt-groups">
       <details class="flt-group" open>
-        <summary>① 銘柄選定（品質スコア）</summary>
+        <summary>① 銘柄選定（ファンダ点）</summary>
         <div class="flt-grid">
           <div class="flt-item">
-            <div class="flt-item-title">品質スコア</div>
+            <div class="flt-item-title">ファンダ点</div>
             <div class="flt-row"><input type="number" id="flt-q-min" placeholder="70"> 点以上</div>
           </div>
           <div class="flt-item">
@@ -606,7 +606,7 @@ table.rank-table tr:hover {{ background: color-mix(in srgb, var(--accent) 6%, tr
   </details>
 
   <details class="box">
-    <summary>全体 品質スコア 上位50（業種横断）</summary>
+    <summary>全体 ファンダ点 上位50（業種横断）</summary>
     <div style="margin-top:10px;" id="top50-wrap">
       {top50_table}
     </div>
@@ -670,8 +670,8 @@ table.rank-table tr:hover {{ background: color-mix(in srgb, var(--accent) 6%, tr
 
   // 用語解説
   const TERMS = {{
-    "軍": "セクター内で品質スコア上位25%が1軍、次45%が2軍、下位30%が3軍（カバレッジ低や絶対品質による補正あり）。",
-    "品質": "業績(0.28)・財務(0.27)・キャッシュフロー(0.15)の総合点（0〜110点）。配当は採点に含めません。",
+    "軍": "セクター内でファンダ点上位25%が1軍、次45%が2軍、下位30%が3軍（カバレッジ低や絶対ファンダ点による補正あり）。",
+    "ファンダ点": "業績(0.28)・財務(0.27)・キャッシュフロー(0.15)の総合点（0〜110点）。配当は採点に含めません。",
     "業績": "売上成長率・EPS成長率・営業利益率・利益安定度の総合評価。直近四半期の急減速時はペナルティ。",
     "財務": "D/Eレシオ・ネットD/E・有利子負債÷営業CF・インタレストカバレッジから算出した財務健全性。",
     "CF": "営業CF・フリーCFのプラス維持とFCF配当性向の余裕度から算出した現金創出力。",
@@ -855,7 +855,7 @@ table.rank-table tr:hover {{ background: color-mix(in srgb, var(--accent) 6%, tr
 
   // CSV / TSV 出力
   function getVisibleRowsData() {{
-    const headers = ["軍", "コード", "銘柄", "業種", "終値", "品質", "業績", "財務", "CF", "買い時", "利回り", "ROE", "ROA", "カバレッジ"];
+    const headers = ["軍", "コード", "銘柄", "業種", "終値", "ファンダ点", "業績", "財務", "CF", "買い時", "利回り", "ROE", "ROA", "カバレッジ"];
     const rows = [headers];
     document.querySelectorAll("#sector-list tr.stock-row:not(.hidden-row)").forEach(tr => {{
       const d = tr.dataset;
