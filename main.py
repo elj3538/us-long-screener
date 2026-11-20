@@ -76,7 +76,7 @@ def main() -> None:
     generate_outputs(scored, dist_dir=dist_dir)
     rep_cnt = generate_all_reports(scored, dist_dir=dist_dir)
     generate_aux_pages(dist_dir=dist_dir)
-    logger.info("生成完了！出力先: %s（個別レポート %d 件＋補助ページ4件）", dist_dir, rep_cnt)
+    logger.info("生成完了！出力先: %s（個別レポート %d 件＋補助ページ5件）", dist_dir, rep_cnt)
 
 
 if __name__ == "__main__":

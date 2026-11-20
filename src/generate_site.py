@@ -413,6 +413,7 @@ table.rank-table tr:hover {{ background: color-mix(in srgb, var(--accent) 6%, tr
       </div>
     </div>
     <div class="head-right">
+      <a href="options.html" class="btn">🎯 オプション候補</a>
       <a href="watchlist.html" class="btn" id="wl-count-pill">☆ ウォッチリスト (<span id="wl-saved-cnt">0</span>)</a>
       <a href="portfolio.html" class="btn" id="pf-count-pill">💼 ポートフォリオ (<span id="pf-saved-cnt">0</span>)</a>
     </div>

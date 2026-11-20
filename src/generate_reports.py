@@ -594,6 +594,7 @@ footer.disclaimer {{ color: var(--muted); font-size: 11px; margin-top: 20px; bor
   <div class="top-nav">
     <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
       <a href="../index.html" class="btn">← ランキングに戻る</a>
+      <a href="../options.html" class="btn">🎯 オプション候補</a>
       <a href="../watchlist.html" class="btn">☆ ウォッチリスト</a>
       <a href="../portfolio.html" class="btn">💼 ポートフォリオ</a>
       <a href="../guide.html" class="btn">使い方・見方</a>

@@ -1,4 +1,4 @@
-"""フェーズ3の補助ページ（watchlist.html / portfolio.html / guide.html / terms.html）を生成するモジュール。"""
+"""フェーズ3の補助ページ（options.html / watchlist.html / portfolio.html / guide.html / terms.html）を生成するモジュール。"""
 
 from __future__ import annotations
 
@@ -125,6 +125,7 @@ _THEME_JS = """
 def _nav_html(active: str) -> str:
     links = [
         ("index.html", "← ランキング"),
+        ("options.html", "🎯 オプション候補"),
         ("watchlist.html", "☆ ウォッチリスト"),
         ("portfolio.html", "💼 ポートフォリオ"),
         ("guide.html", "使い方・見方"),
@@ -636,9 +637,335 @@ def _build_terms_html() -> str:
 </html>"""
 
 
+def _build_options_html() -> str:
+    return f"""<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>オプション取引候補スクリーナー | 10年保有米株スクリーナー</title>
+<style>
+{_COMMON_CSS}
+.badge-warn {{
+  display: inline-block; padding: 1px 6px; border-radius: 4px; font-size: 11px; font-weight: 700;
+  background: var(--wbg); color: var(--wfg); border: 1px solid var(--wbd);
+}}
+.badge-bull {{
+  display: inline-block; padding: 1px 6px; border-radius: 4px; font-size: 11px; font-weight: 700;
+  background: var(--t1bg); color: var(--t1);
+}}
+.badge-bear {{
+  display: inline-block; padding: 1px 6px; border-radius: 4px; font-size: 11px; font-weight: 700;
+  background: color-mix(in srgb, var(--neg) 14%, var(--card)); color: var(--neg);
+}}
+.flt-row {{
+  display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 12px;
+  padding: 10px 12px; background: var(--field); border: 1px solid var(--line); border-radius: 8px;
+}}
+.flt-row label {{ display: inline-flex; align-items: center; gap: 5px; font-size: 12px; }}
+.sub-desc {{ font-size: 12px; color: var(--muted); margin: 0 0 10px; }}
+</style>
+</head>
+<body>
+{_THEME_BAR_HTML}
+<div class="container">
+  {_nav_html("options.html")}
+  <h1>🎯 オプション取引候補スクリーナー</h1>
+  <p class="sub-desc" id="opt-meta">S&amp;P 500 構成銘柄から、強気戦略（CSP・カバードコール向け）と弱気警戒（プット買い等の逆スクリーニング向け）を自動抽出します。</p>
+
+  <div class="kpi-grid">
+    <div class="kpi-box"><div class="kpi-lbl">🟢 強気1軍候補（急減速なし）</div><div class="kpi-val pos" id="kpi-bull-all">-</div></div>
+    <div class="kpi-box"><div class="kpi-lbl">💎 強気×割安（買い時70以上）</div><div class="kpi-val pos" id="kpi-bull-val">-</div></div>
+    <div class="kpi-box"><div class="kpi-lbl">🔴 弱気警戒候補（警戒55以上）</div><div class="kpi-val neg" id="kpi-bear-all">-</div></div>
+    <div class="kpi-box"><div class="kpi-lbl">⚠ 直近四半期 急減速銘柄</div><div class="kpi-val" id="kpi-decel">-</div></div>
+  </div>
+
+  <div class="card">
+    <div class="tabs-bar">
+      <button type="button" class="tab-btn active" id="tab-bull">🟢 強気候補（1軍・急減速なし）</button>
+      <button type="button" class="tab-btn" id="tab-bear">🔴 弱気警戒・逆スクリーニング</button>
+      <span style="flex:1"></span>
+      <button type="button" class="btn" id="opt-copy-tickers">📋 ティッカー一覧コピー</button>
+      <button type="button" class="btn" id="opt-csv-btn">⬇ CSV出力</button>
+    </div>
+
+    <div class="flt-row" id="flt-bull">
+      <label>買い時スコア 下限: <input type="number" id="bull-min-buy" value="60" min="0" max="110" step="5" style="width:70px;"></label>
+      <label>ファンダ点 下限: <input type="number" id="bull-min-q" value="0" min="0" max="110" step="5" style="width:70px;"></label>
+      <label>並び替え:
+        <select id="bull-sort">
+          <option value="buy_desc">買い時スコア 高い順（CSP好機）</option>
+          <option value="q_desc">ファンダ点 高い順</option>
+          <option value="ret1y_asc">1Y騰落率 低い順（押し目）</option>
+          <option value="ret1m_asc">1M騰落率 低い順（直近調整）</option>
+        </select>
+      </label>
+      <label>業種: <select id="bull-sec"><option value="">すべて</option></select></label>
+      <input type="text" id="bull-kw" placeholder="ティッカー・銘柄検索" style="width:160px;">
+      <span style="color:var(--muted);font-size:12px;" id="bull-count">0件</span>
+    </div>
+
+    <div class="flt-row" id="flt-bear" style="display:none;">
+      <label>弱気警戒スコア 下限: <input type="number" id="bear-min-score" value="50" min="0" max="100" step="5" style="width:70px;"></label>
+      <label><input type="checkbox" id="bear-only-decel"> ⚠急減速のみ表示</label>
+      <label>並び替え:
+        <select id="bear-sort">
+          <option value="bear_desc">弱気警戒スコア 高い順</option>
+          <option value="q_asc">ファンダ点 低い順</option>
+          <option value="buy_asc">買い時スコア 低い順（割高）</option>
+          <option value="ret1m_desc">1M騰落率 高い順（過熱・反落警戒）</option>
+        </select>
+      </label>
+      <label>業種: <select id="bear-sec"><option value="">すべて</option></select></label>
+      <input type="text" id="bear-kw" placeholder="ティッカー・銘柄検索" style="width:160px;">
+      <span style="color:var(--muted);font-size:12px;" id="bear-count">0件</span>
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead id="opt-thead"></thead>
+        <tbody id="opt-tbody"><tr><td colspan="12" style="text-align:center;color:var(--muted);padding:24px;">データを読み込み中...</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>抽出ロジックと活用メモ</h2>
+    <ul style="margin:6px 0 0;padding-left:20px;">
+      <li><strong>🟢 強気候補（CSP・カバードコール向け）</strong>：各セクター内上位25%の<strong>1軍</strong>かつ<strong>直近四半期の急減速フラグなし</strong>の銘柄を抽出しています。「買い時スコア」が高い銘柄ほど割安水準にあり、キャッシュセキュアド・プット（CSP）等で下値を拾う候補になります。</li>
+      <li><strong>🔴 弱気警戒スコア（0〜100点・逆スクリーニング）</strong>：<code>(100 - ファンダ点) × 0.5 + (100 - 買い時スコア) × 0.3 + 急減速ペナルティ(+20)</code> で算出。事業地力が弱い・割高・足元の業績が急減速している銘柄ほど高スコアになります。</li>
+      <li><strong>⚠️ 実トレード前の確認</strong>：個別レポート（ティッカーをクリック）で<strong>次回決算予定日</strong>や<strong>RSI / 株価推移</strong>を確認し、決算またぎのIVクラッシュや流動性（出来高・スプレッド）にご注意ください。</li>
+    </ul>
+  </div>
+</div>
+<script>{_THEME_JS}</script>
+<script>
+(async () => {{
+  const res = await fetch("ranking.json");
+  const data = await res.json();
+  const items = data.items || [];
+  const metaEl = document.getElementById("opt-meta");
+  if (data.generated_at) {{
+    metaEl.textContent = "最終更新: " + data.generated_at + " ／ 対象: " + items.length + " 銘柄（S&P 500）。強気戦略（CSP等）と弱気警戒（逆スクリーニング）を自動抽出します。";
+  }}
+
+  const bullAll = items.filter(x => x.option_signals && x.option_signals.bull_tier1);
+  const bullVal = bullAll.filter(x => (x.buy_score ?? -1) >= 70);
+  const bearAll = items.filter(x => ((x.option_signals && x.option_signals.bear_watch_score) ?? 0) >= 55);
+  const decelAll = items.filter(x => x.rapid_decel);
+
+  document.getElementById("kpi-bull-all").textContent = bullAll.length + " 銘柄";
+  document.getElementById("kpi-bull-val").textContent = bullVal.length + " 銘柄";
+  document.getElementById("kpi-bear-all").textContent = bearAll.length + " 銘柄";
+  document.getElementById("kpi-decel").textContent = decelAll.length + " 銘柄";
+
+  const sectors = [...new Set(items.map(x => x.sector_ja).filter(Boolean))].sort();
+  ["bull-sec", "bear-sec"].forEach(id => {{
+    const sel = document.getElementById(id);
+    sectors.forEach(s => {{
+      const o = document.createElement("option");
+      o.value = s; o.textContent = s;
+      sel.appendChild(o);
+    }});
+  }});
+
+  let mode = "bull";
+  let currentRows = [];
+
+  const fmt = (v, d = 1) => (v == null || Number.isNaN(v)) ? "-" : Number(v).toFixed(d);
+  const fmtPct = (v) => (v == null || Number.isNaN(v)) ? "-" : ((v > 0 ? "+" : "") + Number(v).toFixed(1) + "%");
+  const retCls = (v) => (v == null) ? "" : (v > 0 ? "pos" : (v < 0 ? "neg" : ""));
+
+  function getWlSet() {{
+    try {{ return new Set(JSON.parse(localStorage.getItem("wl_codes_long_us") || "[]")); }} catch {{ return new Set(); }}
+  }}
+  function toggleWl(sym) {{
+    const s = getWlSet();
+    if (s.has(sym)) s.delete(sym); else s.add(sym);
+    localStorage.setItem("wl_codes_long_us", JSON.stringify([...s]));
+    render();
+  }}
+
+  function render() {{
+    const thead = document.getElementById("opt-thead");
+    const tbody = document.getElementById("opt-tbody");
+    const wlSet = getWlSet();
+    tbody.innerHTML = "";
+
+    if (mode === "bull") {{
+      const minBuy = parseFloat(document.getElementById("bull-min-buy").value) || 0;
+      const minQ = parseFloat(document.getElementById("bull-min-q").value) || 0;
+      const sec = document.getElementById("bull-sec").value;
+      const kw = document.getElementById("bull-kw").value.trim().toLowerCase();
+      const sort = document.getElementById("bull-sort").value;
+
+      currentRows = bullAll.filter(x => {{
+        if ((x.buy_score ?? -1) < minBuy) return false;
+        if ((x.quality_score ?? -1) < minQ) return false;
+        if (sec && x.sector_ja !== sec) return false;
+        if (kw && !((x.symbol || "").toLowerCase().includes(kw) || (x.name || "").toLowerCase().includes(kw))) return false;
+        return true;
+      }});
+      currentRows.sort((a, b) => {{
+        if (sort === "q_desc") return (b.quality_score ?? -1) - (a.quality_score ?? -1);
+        if (sort === "ret1y_asc") return ((a.returns && a.returns.Y) ?? 9999) - ((b.returns && b.returns.Y) ?? 9999);
+        if (sort === "ret1m_asc") return ((a.returns && a.returns.M) ?? 9999) - ((b.returns && b.returns.M) ?? 9999);
+        return (b.buy_score ?? -1) - (a.buy_score ?? -1);
+      }});
+      document.getElementById("bull-count").textContent = currentRows.length + "件";
+
+      thead.innerHTML = '<tr><th class="num">#</th><th>軍</th><th>コード</th><th>銘柄</th><th>業種</th><th class="num">終値</th><th class="num">1M騰落</th><th class="num">1Y騰落</th><th class="num">ファンダ点</th><th class="num">買い時</th><th class="num">業績/財務/CF</th><th>☆WL</th></tr>';
+
+      if (!currentRows.length) {{
+        tbody.innerHTML = '<tr><td colspan="12" style="text-align:center;color:var(--muted);padding:24px;">条件に一致する銘柄がありません。下限スコアを下げてみてください。</td></tr>';
+        return;
+      }}
+      currentRows.forEach((x, i) => {{
+        const tr = document.createElement("tr");
+        const r1m = x.returns ? x.returns.M : null;
+        const r1y = x.returns ? x.returns.Y : null;
+        const saved = wlSet.has(x.symbol);
+        tr.innerHTML = `
+          <td class="num">${{i + 1}}</td>
+          <td><span class="tier-badge t${{x.tier}}">${{x.tier}}軍</span></td>
+          <td><a href="reports/${{x.symbol}}.html"><strong>${{x.symbol}}</strong></a></td>
+          <td>${{x.name || ""}} <span class="badge-bull">強気1軍</span></td>
+          <td>${{x.sector_ja || "-"}}</td>
+          <td class="num">${{x.close != null ? "$" + fmt(x.close, 2) : "-"}}</td>
+          <td class="num ${{retCls(r1m)}}">${{fmtPct(r1m)}}</td>
+          <td class="num ${{retCls(r1y)}}">${{fmtPct(r1y)}}</td>
+          <td class="num"><strong>${{fmt(x.quality_score)}}</strong></td>
+          <td class="num pos"><strong>${{fmt(x.buy_score)}}</strong></td>
+          <td class="num" style="color:var(--muted)">${{fmt(x.perf_score, 0)}} / ${{fmt(x.fin_score, 0)}} / ${{fmt(x.cf_score, 0)}}</td>
+          <td><button type="button" class="btn wl-btn" data-sym="${{x.symbol}}">${{saved ? "★登録済" : "☆追加"}}</button></td>
+        `;
+        tbody.appendChild(tr);
+      }});
+    }} else {{
+      const minBear = parseFloat(document.getElementById("bear-min-score").value) || 0;
+      const onlyDecel = document.getElementById("bear-only-decel").checked;
+      const sec = document.getElementById("bear-sec").value;
+      const kw = document.getElementById("bear-kw").value.trim().toLowerCase();
+      const sort = document.getElementById("bear-sort").value;
+
+      currentRows = items.filter(x => {{
+        const bs = (x.option_signals && x.option_signals.bear_watch_score) ?? 0;
+        if (bs < minBear) return false;
+        if (onlyDecel && !x.rapid_decel) return false;
+        if (sec && x.sector_ja !== sec) return false;
+        if (kw && !((x.symbol || "").toLowerCase().includes(kw) || (x.name || "").toLowerCase().includes(kw))) return false;
+        return true;
+      }});
+      currentRows.sort((a, b) => {{
+        const ba = (a.option_signals && a.option_signals.bear_watch_score) ?? 0;
+        const bb = (b.option_signals && b.option_signals.bear_watch_score) ?? 0;
+        if (sort === "q_asc") return (a.quality_score ?? 999) - (b.quality_score ?? 999);
+        if (sort === "buy_asc") return (a.buy_score ?? 999) - (b.buy_score ?? 999);
+        if (sort === "ret1m_desc") return ((b.returns && b.returns.M) ?? -9999) - ((a.returns && a.returns.M) ?? -9999);
+        return bb - ba;
+      }});
+      document.getElementById("bear-count").textContent = currentRows.length + "件";
+
+      thead.innerHTML = '<tr><th class="num">#</th><th>軍</th><th>コード</th><th>銘柄</th><th>業種</th><th class="num">終値</th><th class="num">1M騰落</th><th class="num">1Y騰落</th><th class="num">弱気警戒点</th><th class="num">ファンダ点</th><th class="num">買い時</th><th>☆WL</th></tr>';
+
+      if (!currentRows.length) {{
+        tbody.innerHTML = '<tr><td colspan="12" style="text-align:center;color:var(--muted);padding:24px;">条件に一致する銘柄がありません。</td></tr>';
+        return;
+      }}
+      currentRows.forEach((x, i) => {{
+        const tr = document.createElement("tr");
+        const bs = (x.option_signals && x.option_signals.bear_watch_score) ?? 0;
+        const r1m = x.returns ? x.returns.M : null;
+        const r1y = x.returns ? x.returns.Y : null;
+        const saved = wlSet.has(x.symbol);
+        const warn = x.rapid_decel ? ' <span class="badge-warn">⚠急減速</span>' : '';
+        tr.innerHTML = `
+          <td class="num">${{i + 1}}</td>
+          <td><span class="tier-badge t${{x.tier}}">${{x.tier}}軍</span></td>
+          <td><a href="reports/${{x.symbol}}.html"><strong>${{x.symbol}}</strong></a></td>
+          <td>${{x.name || ""}}${{warn}}</td>
+          <td>${{x.sector_ja || "-"}}</td>
+          <td class="num">${{x.close != null ? "$" + fmt(x.close, 2) : "-"}}</td>
+          <td class="num ${{retCls(r1m)}}">${{fmtPct(r1m)}}</td>
+          <td class="num ${{retCls(r1y)}}">${{fmtPct(r1y)}}</td>
+          <td class="num neg"><strong>${{fmt(bs)}}</strong></td>
+          <td class="num">${{fmt(x.quality_score)}}</td>
+          <td class="num">${{fmt(x.buy_score)}}</td>
+          <td><button type="button" class="btn wl-btn" data-sym="${{x.symbol}}">${{saved ? "★登録済" : "☆追加"}}</button></td>
+        `;
+        tbody.appendChild(tr);
+      }});
+    }}
+
+    tbody.querySelectorAll(".wl-btn").forEach(btn => {{
+      btn.addEventListener("click", () => toggleWl(btn.dataset.sym));
+    }});
+  }}
+
+  document.getElementById("tab-bull").addEventListener("click", () => {{
+    mode = "bull";
+    document.getElementById("tab-bull").classList.add("active");
+    document.getElementById("tab-bear").classList.remove("active");
+    document.getElementById("flt-bull").style.display = "flex";
+    document.getElementById("flt-bear").style.display = "none";
+    render();
+  }});
+  document.getElementById("tab-bear").addEventListener("click", () => {{
+    mode = "bear";
+    document.getElementById("tab-bear").classList.add("active");
+    document.getElementById("tab-bull").classList.remove("active");
+    document.getElementById("flt-bull").style.display = "none";
+    document.getElementById("flt-bear").style.display = "flex";
+    render();
+  }});
+
+  ["bull-min-buy","bull-min-q","bull-sort","bull-sec","bull-kw","bear-min-score","bear-only-decel","bear-sort","bear-sec","bear-kw"].forEach(id => {{
+    const el = document.getElementById(id);
+    el.addEventListener("input", render);
+    el.addEventListener("change", render);
+  }});
+
+  document.getElementById("opt-copy-tickers").addEventListener("click", async () => {{
+    const list = currentRows.map(x => x.symbol).join(", ");
+    if (!list) {{ alert("コピーする銘柄がありません。"); return; }}
+    await navigator.clipboard.writeText(list);
+    alert(currentRows.length + "件のティッカーをクリップボードにコピーしました。");
+  }});
+
+  document.getElementById("opt-csv-btn").addEventListener("click", () => {{
+    const headers = mode === "bull"
+      ? ["順位","軍","コード","銘柄","業種","終値","1M騰落%","1Y騰落%","ファンダ点","買い時","業績","財務","CF"]
+      : ["順位","軍","コード","銘柄","業種","終値","1M騰落%","1Y騰落%","弱気警戒点","ファンダ点","買い時","急減速"];
+    const rows = [headers];
+    currentRows.forEach((x, i) => {{
+      const r1m = x.returns ? (x.returns.M ?? "") : "";
+      const r1y = x.returns ? (x.returns.Y ?? "") : "";
+      if (mode === "bull") {{
+        rows.push([i+1, x.tier+"軍", x.symbol, x.name||"", x.sector_ja||"", x.close??"", r1m, r1y, x.quality_score??"", x.buy_score??"", x.perf_score??"", x.fin_score??"", x.cf_score??""]);
+      }} else {{
+        const bs = (x.option_signals && x.option_signals.bear_watch_score) ?? "";
+        rows.push([i+1, x.tier+"軍", x.symbol, x.name||"", x.sector_ja||"", x.close??"", r1m, r1y, bs, x.quality_score??"", x.buy_score??"", x.rapid_decel ? "あり" : "なし"]);
+      }}
+    }});
+    const csv = rows.map(r => r.map(v => '"' + String(v).replace(/"/g, '""') + '"').join(",")).join("\\r\\n");
+    const blob = new Blob(["\\uFEFF" + csv], {{ type: "text/csv;charset=utf-8;" }});
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "us_options_" + mode + "_" + new Date().toISOString().slice(0, 10) + ".csv";
+    a.click();
+  }});
+
+  render();
+}})();
+</script>
+</body>
+</html>"""
+
+
 def generate_aux_pages(dist_dir: Path) -> None:
-    """watchlist.html, portfolio.html, guide.html, terms.html を生成する。"""
+    """options.html, watchlist.html, portfolio.html, guide.html, terms.html を生成する。"""
     dist_dir.mkdir(parents=True, exist_ok=True)
+    (dist_dir / "options.html").write_text(_build_options_html(), encoding="utf-8")
     (dist_dir / "watchlist.html").write_text(_build_watchlist_html(), encoding="utf-8")
     (dist_dir / "portfolio.html").write_text(_build_portfolio_html(), encoding="utf-8")
     (dist_dir / "guide.html").write_text(_build_guide_html(), encoding="utf-8")
