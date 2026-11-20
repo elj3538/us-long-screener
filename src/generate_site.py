@@ -385,6 +385,7 @@ table.rank-table tr:hover {{ background: color-mix(in srgb, var(--accent) 6%, tr
 </style>
 </head>
 <body>
+<div id="hub-portal-bar" style="background:#0f172a;color:#e2e8f0;padding:7px 14px;display:flex;flex-wrap:wrap;align-items:center;gap:6px;font-size:12px;border-bottom:1px solid #1e293b;"><a href="https://elj3538.github.io/" style="color:#cbd5e1;background:transparent;padding:4px 10px;border-radius:6px;text-decoration:none;font-weight:600;white-space:nowrap;">🏠 ポータル</a><a href="https://elj3538.github.io/us-long-screener/" style="color:#ffffff;background:#2563eb;padding:4px 10px;border-radius:6px;text-decoration:none;font-weight:600;white-space:nowrap;">🇺🇸 米国10年保有</a><a href="https://elj3538.github.io/us-dividend-screener/" style="color:#cbd5e1;background:transparent;padding:4px 10px;border-radius:6px;text-decoration:none;font-weight:600;white-space:nowrap;">🇺🇸 米国配当株</a><a href="https://elj3538.github.io/jp-long-screener/" style="color:#cbd5e1;background:transparent;padding:4px 10px;border-radius:6px;text-decoration:none;font-weight:600;white-space:nowrap;">🇯🇵 日本10年保有</a><a href="https://elj3538.github.io/jp-dividend-screener/" style="color:#cbd5e1;background:transparent;padding:4px 10px;border-radius:6px;text-decoration:none;font-weight:600;white-space:nowrap;">🇯🇵 日本配当株</a></div>
 
 <div id="theme-bar">
   <span>配色:</span>
