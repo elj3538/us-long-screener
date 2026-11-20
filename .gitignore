@@ -1,0 +1,8 @@
+.venv/
+__pycache__/
+*.pyc
+cache/
+dist/
+.pytest_cache/
+HANDOFF.md
+ANALYSIS_PC_*.md
