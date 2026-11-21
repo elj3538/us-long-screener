@@ -179,7 +179,7 @@ def fetch_stock_data(
             except Exception:
                 pass
 
-    for attempt in range(2):
+    for attempt in range(4):
         try:
             ticker = yf.Ticker(yf_symbol)
             info = ticker.info or {}
@@ -273,8 +273,10 @@ def fetch_stock_data(
                 time.sleep(sleep_sec)
             return data
         except Exception as exc:
-            logger.warning("%s の取得に失敗 (attempt %d): %s", yf_symbol, attempt + 1, exc)
-            time.sleep(1.0)
+            msg = str(exc)
+            wait = (3.5 * (attempt + 1)) if ("429" in msg or "Too Many Requests" in msg) else (1.5 * (attempt + 1))
+            logger.warning("%s の取得に失敗 (attempt %d, %.1fs待機): %s", yf_symbol, attempt + 1, wait, exc)
+            time.sleep(wait)
 
     # 取得失敗時は古いキャッシュでもあれば返す
     if cache_file.exists():

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import math
-from statistics import median
+from statistics import mean, median, pstdev
 from typing import Any
 
 
@@ -252,51 +252,88 @@ def _compute_raw_metrics(stock: dict[str, Any]) -> dict[str, Any]:
         elif ffo_series:
             ffo_int_cov = 99.9
 
-    # 各スコア要素の採点（0〜110）
-    s_rev = _piecewise(rev_cagr, [(-10, 10), (-6, 30), (0, 55), (3, 72), (8, 92), (15, 110)])
-    s_eps = _piecewise(eps_cagr, [(-15, 10), (-5, 30), (0, 55), (5, 75), (12, 95), (20, 110)])
-    s_margin = _piecewise(op_margin, [(0, 15), (5, 42), (10, 62), (15, 80), (25, 98), (35, 110)])
+    # v2: 資本効率（ROIC）＆株式希薄化＆CF連続指標を先出し計算
+    roic_pre = None
+    if latest_ebit is not None and latest_eq is not None:
+        ic_pre = (latest_debt or 0.0) + latest_eq - (latest_cash or 0.0)
+        if ic_pre > 0:
+            roic_pre = round(latest_ebit * 0.79 / ic_pre * 100.0, 2)
+    shares_s_pre = fin.get("shares", [])
+    shares_chg_pre = None
+    if len(shares_s_pre) >= 2 and shares_s_pre[-1]["value"] and shares_s_pre[-1]["value"] > 0:
+        shares_chg_pre = round((shares_s_pre[0]["value"] / shares_s_pre[-1]["value"] - 1.0) * 100.0, 2)
+    rev_v_pre = rev_s[0]["value"] if rev_s else None
+    ocf_margin = round(latest_ocf / rev_v_pre * 100.0, 2) if (latest_ocf is not None and rev_v_pre and rev_v_pre > 0) else None
+    fcf_margin = round(latest_fcf / rev_v_pre * 100.0, 2) if (latest_fcf is not None and rev_v_pre and rev_v_pre > 0) else None
+    ocf_to_ni_pre = round(latest_ocf / ni_s[0]["value"], 2) if (latest_ocf is not None and ni_s and ni_s[0]["value"] and ni_s[0]["value"] > 0) else None
+
+    # v2: 各スコア要素の採点（0〜110）
+    s_rev = _piecewise(rev_cagr, [(-10, 10), (-5, 28), (0, 50), (4, 70), (10, 92), (18, 110)])
+    s_eps = _piecewise(eps_cagr, [(-15, 10), (-5, 28), (0, 50), (6, 74), (14, 94), (24, 110)])
+    s_margin = _piecewise(op_margin, [(0, 15), (5, 42), (12, 66), (20, 86), (30, 102), (40, 110)])
     s_perf = _avg([s_rev, s_eps, s_margin, profit_stability])
     if s_perf is not None and rapid_decel:
-        # 急減速ペナルティ（最大40%減：ここでは標準30%減として反映）
-        s_perf = round(s_perf * 0.70, 1)
+        s_perf = round(s_perf * 0.72, 1)
     elif s_perf is not None:
         s_perf = round(s_perf, 1)
 
-    s_de = _piecewise(de_ratio, [(0.0, 110), (0.5, 95), (1.0, 75), (1.5, 55), (2.0, 38), (3.5, 10)])
-    s_nde = _piecewise(net_de_ratio, [(-0.5, 110), (0.0, 98), (0.5, 80), (1.0, 60), (1.5, 42), (3.0, 10)])
-    s_docf = _piecewise(debt_to_ocf, [(0.0, 110), (1.5, 95), (3.0, 75), (4.5, 55), (6.0, 38), (10.0, 10)])
-    s_icov = _piecewise(interest_cov, [(1.0, 10), (3.0, 42), (8.0, 78), (15.0, 96), (30.0, 110)])
+    # v2: 資本効率（ROIC 75% ＋ 株式希薄化/自社株買い 25%）
+    s_roic = _piecewise(roic_pre, [(0, 15), (6, 42), (12, 70), (20, 94), (32, 110)])
+    s_shchg = _piecewise(shares_chg_pre, [(-12, 108), (-4, 92), (0, 74), (4, 52), (12, 18)])
+    if s_roic is not None and s_shchg is not None:
+        s_cap_eff = round(s_roic * 0.75 + s_shchg * 0.25, 1)
+    else:
+        s_cap_eff = round(s_roic, 1) if s_roic is not None else (round(s_shchg, 1) if s_shchg is not None else None)
+
+    s_de = _piecewise(de_ratio, [(0.0, 106), (0.5, 92), (1.0, 74), (1.5, 54), (2.2, 36), (3.5, 10)])
+    s_nde = _piecewise(net_de_ratio, [(-0.5, 106), (0.0, 94), (0.5, 78), (1.0, 58), (1.8, 38), (3.0, 10)])
+    s_docf = _piecewise(debt_to_ocf, [(0.0, 106), (1.5, 92), (3.0, 74), (4.5, 54), (6.5, 36), (10.0, 10)])
+    s_icov = _piecewise(interest_cov, [(1.0, 10), (3.0, 42), (8.0, 76), (15.0, 94), (30.0, 108)])
     s_fin = _avg([s_de, s_nde, s_docf, s_icov])
     if s_fin is not None:
         s_fin = round(s_fin, 1)
 
-    s_ocf = 90.0 if (latest_ocf is not None and latest_ocf > 0) else (20.0 if latest_ocf is not None else None)
-    s_fcf = 95.0 if (latest_fcf is not None and latest_fcf > 0) else (20.0 if latest_fcf is not None else None)
-    s_fcf_pay = _piecewise(fcf_payout, [(0, 105), (30, 95), (50, 78), (75, 55), (85, 40), (120, 15)])
-    s_cf = _avg([s_ocf, s_fcf, s_fcf_pay])
+    # v2: CF連続採点（2値採点廃止 → 営業CFマージン・FCFマージン・キャッシュ変換率・FCF配当性向）
+    s_ocfm = _piecewise(ocf_margin, [(-2, 15), (5, 45), (12, 72), (22, 94), (35, 110)])
+    s_fcfm = _piecewise(fcf_margin, [(-5, 15), (2, 45), (8, 72), (16, 94), (28, 110)])
+    s_ocfni = _piecewise(ocf_to_ni_pre, [(0.3, 18), (0.8, 56), (1.1, 82), (1.5, 100), (2.0, 108)])
+    s_fcf_pay = _piecewise(fcf_payout, [(0, 104), (30, 92), (55, 76), (80, 52), (100, 34), (130, 12)])
+    s_cf = _avg([s_ocfm, s_fcfm, s_ocfni, s_fcf_pay])
     if s_cf is not None:
         s_cf = round(s_cf, 1)
 
-    # 品質スコア統合
+    # v2: 品質スコア統合（一般企業はROIC/資本効率を組み込み、金融モデルは一般企業と分布を校正）
     quality_score: float | None = None
     if model == "general":
-        parts = [(s_perf, 0.28), (s_fin, 0.27), (s_cf, 0.15)]
+        parts = [(s_perf, 0.30), (s_cap_eff, 0.25), (s_fin, 0.25), (s_cf, 0.20)]
         valid_parts = [(sc, w) for sc, w in parts if sc is not None]
         if valid_parts:
             w_sum = sum(w for _, w in valid_parts)
             quality_score = round(sum(sc * w for sc, w in valid_parts) / w_sum, 1)
     elif model == "financial":
-        s_roe = _piecewise(roe, [(0, 15), (5, 45), (8, 68), (12, 88), (18, 110)])
-        quality_score = _avg([s_roe, s_rev, s_eps, profit_stability])
+        # 金融株の高得点偏重を抑えるため、カーブを校正（上限103付近）
+        s_roe_f = _piecewise(roe, [(0, 15), (6, 44), (10, 66), (15, 84), (22, 100)])
+        s_rev_f = _piecewise(rev_cagr, [(-8, 15), (0, 48), (5, 70), (12, 88), (22, 102)])
+        s_eps_f = _piecewise(eps_cagr, [(-10, 15), (0, 48), (7, 72), (15, 90), (25, 104)])
+        s_stab_f = min(98.0, profit_stability * 0.92) if profit_stability is not None else None
+        quality_score = _avg([s_roe_f, s_rev_f, s_eps_f, s_stab_f])
+        if quality_score is not None and rapid_decel:
+            quality_score *= 0.80
         if quality_score is not None:
             quality_score = round(quality_score, 1)
     elif model == "reit":
-        s_ffo_g = _piecewise(ffo_cagr, [(-5, 20), (0, 55), (3, 75), (7, 95), (12, 110)])
-        s_ffo_ic = _piecewise(ffo_int_cov, [(1.5, 20), (3.0, 55), (5.0, 80), (10.0, 105)])
+        s_ffo_g = _piecewise(ffo_cagr, [(-5, 20), (0, 52), (3, 72), (7, 92), (12, 106)])
+        s_ffo_ic = _piecewise(ffo_int_cov, [(1.5, 20), (3.0, 52), (5.0, 78), (10.0, 102)])
         quality_score = _avg([s_ffo_g, s_rev, ffo_stability, s_ffo_ic])
         if quality_score is not None:
             quality_score = round(quality_score, 1)
+
+    # Forward PER & PEG（v2 買い時スコア用）
+    fwd_pe_v = val.get("forward_pe")
+    if fwd_pe_v is not None and (fwd_pe_v <= 0 or fwd_pe_v > 200):
+        fwd_pe_v = None
+    eff_pe_v = fwd_pe_v or per
+    peg_val = round(eff_pe_v / min(eps_cagr, 45.0), 2) if (eff_pe_v and eps_cagr is not None and eps_cagr >= 3.0) else None
 
     # 自社過去PERレンジ近似（5年年次価格レンジの中における現在株価の相対位置）
     per_range_pos = None
@@ -433,9 +470,11 @@ def _compute_raw_metrics(stock: dict[str, Any]) -> dict[str, Any]:
             "nde": round(s_nde, 1) if s_nde is not None else None,
             "docf": round(s_docf, 1) if s_docf is not None else None,
             "icov": round(s_icov, 1) if s_icov is not None else None,
-            "ocf": s_ocf,
-            "fcf": s_fcf,
+            "ocf": round(s_ocfm, 1) if s_ocfm is not None else None,
+            "fcf": round(s_fcfm, 1) if s_fcfm is not None else None,
             "fcf_pay": round(s_fcf_pay, 1) if s_fcf_pay is not None else None,
+            "roic": round(s_roic, 1) if s_roic is not None else None,
+            "cap_eff": s_cap_eff,
         },
         "detail": {
             "summary": stock.get("summary", ""),
@@ -492,6 +531,9 @@ def _compute_raw_metrics(stock: dict[str, Any]) -> dict[str, Any]:
             "fcf_yield": fcf_yield,
             "ev_ebit": ev_ebit,
             "per": per,
+            "forward_pe": round(fwd_pe_v, 2) if fwd_pe_v is not None else None,
+            "peg": peg_val,
+            "roic": roic_pre,
             "pbr": pbr,
             "p_ffo": p_ffo,
             "per_range_pos": per_range_pos,
@@ -573,21 +615,21 @@ def score_all_stocks(raw_stocks: list[dict[str, Any]]) -> dict[str, Any]:
             s_per_rng = _piecewise(m["per_range_pos"], [(0, 15), (20, 38), (50, 62), (60, 75), (85, 100), (100, 110)])
             s_per = _avg([s_per_rel, s_per_rng])
             s_pbr = _piecewise(pbr_rel, [(0.5, 110), (0.95, 82), (1.0, 68), (1.20, 45), (2.0, 15)])
+            s_peg = _piecewise(m.get("peg"), [(0.7, 110), (1.2, 94), (1.8, 74), (2.6, 50), (4.0, 18)])
 
+            # v2: 欠損時は60点固定埋めせず取得済み項目のみで平均＋PEGレシオ組み込み
             if model == "financial":
-                b_per = s_per if s_per is not None else 60.0
-                b_pbr = s_pbr if s_pbr is not None else 60.0
-                buy_score = round(b_per * 0.5 + b_pbr * 0.5, 1)
+                b_raw = _avg([s_per, s_pbr, s_peg])
+                buy_score = round(b_raw, 1) if b_raw is not None else 60.0
             elif model == "reit":
                 pffo_rel = (m["p_ffo"] / st["p_ffo_median"]) if (m["p_ffo"] and st["p_ffo_median"]) else None
                 buy_score = _piecewise(pffo_rel, [(0.6, 105), (0.9, 82), (1.0, 65), (1.2, 42), (1.6, 15)])
                 buy_score = round(buy_score, 1) if buy_score is not None else 60.0
             else:
-                # 通信・情報技術はPBR除外して3要素均等
                 exclude_pbr = x["sector_en"] in {"Information Technology", "Communication Services"}
-                comps = [s_ev, s_fcf_y, s_per] if exclude_pbr else [s_ev, s_fcf_y, s_per, s_pbr]
-                filled_comps = [c if c is not None else 60.0 for c in comps]
-                buy_score = round(sum(filled_comps) / len(filled_comps), 1)
+                comps = [s_ev, s_fcf_y, s_per, s_peg] if exclude_pbr else [s_ev, s_fcf_y, s_per, s_pbr, s_peg]
+                b_raw = _avg(comps)
+                buy_score = round(b_raw, 1) if b_raw is not None else 60.0
 
             x["buy_score"] = buy_score
             x["sector_grade"] = st["sector_grade"]
@@ -602,16 +644,21 @@ def score_all_stocks(raw_stocks: list[dict[str, Any]]) -> dict[str, Any]:
                 "fcf_yield": round(s_fcf_y, 1) if s_fcf_y is not None else None,
                 "per": round(s_per, 1) if s_per is not None else None,
                 "pbr": round(s_pbr, 1) if s_pbr is not None else None,
+                "peg": round(s_peg, 1) if s_peg is not None else None,
             })
 
-        # セクター内で品質スコア降順ソートして軍分け（上位25%=1軍、次45%=2軍、下位30%=3軍）
+        # セクター内で品質スコア降順ソートして業種内偏差値＆軍分け
         sec_items.sort(key=lambda r: (r["quality_score"] if r["quality_score"] is not None else -1.0), reverse=True)
+        q_valid = [r["quality_score"] for r in sec_items if r["quality_score"] is not None]
+        q_mu = mean(q_valid) if q_valid else 50.0
+        q_sd = pstdev(q_valid) if len(q_valid) >= 3 else 0.0
         n = len(sec_items)
         t1_cut = max(1, round(n * 0.25)) if n >= 4 else (1 if n >= 1 else 0)
         t2_cut = max(t1_cut, round(n * 0.70)) if n >= 3 else n
 
         for idx, x in enumerate(sec_items):
             q_sc = x["quality_score"]
+            x["sector_dev"] = round(50.0 + 10.0 * (q_sc - q_mu) / q_sd, 1) if (q_sc is not None and q_sd > 0.01) else 50.0
             if q_sc is None:
                 tier = 3
             elif idx < t1_cut:
