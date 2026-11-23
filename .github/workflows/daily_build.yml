@@ -1,6 +1,10 @@
 name: Daily US Long Screener Build & Deploy
 
 on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/daily_build.yml"
   schedule:
     # 米国市場クローズ後（毎日 UTC 22:30 = 日本時間 翌朝 7:30）に自動実行
     - cron: "30 22 * * 1-5"
@@ -18,14 +22,11 @@ permissions:
 
 concurrency:
   group: "pages"
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
-  build-and-deploy:
+  build:
     runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -47,11 +48,21 @@ jobs:
             python main.py --no-cache --workers 3
           fi
 
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
         with:
           path: ./dist
 
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
